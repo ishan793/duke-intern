@@ -1,0 +1,5 @@
+issues in implementation :
+1. no comments
+2. all bind statements together
+3. uncertainty analysis for only one expr possible
+4. value of t set by bind, hence t cannot be used for loop purposes ?
