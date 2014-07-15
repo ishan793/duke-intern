@@ -12,6 +12,7 @@ int uncern = 0;								// marker to tell whether uncertainty needs to be done or
 char type[20] = {'\0'};                     // word that indicates the variable whose value is found by sharpe.
 int uncer_type = 0;                         // variable to denote the uncertainty type
 char *test;                                 // string to store the file as an array
+int uncer_var_count = 0;                // variable to keep track of number of variables of uncer type
 
 double getValue(char const *argv){
 
@@ -25,7 +26,7 @@ double getValue(char const *argv){
     int sample_size = 0;                    // variable for number of total sampels
     int i = 0;                              // loop counter
     double t = 0;                           // time value
-
+    
 
     test = storeFile(argv);
     /*--------------- debug --------------------*/
@@ -38,22 +39,29 @@ double getValue(char const *argv){
     printf("-------------- debug ends --------------------\n");
     /*--------------- debug --------------------*/
     num_variables = getVar(test);
-    //printf("got vars\n");
-    for(i = 0; i<num_variables;i++){
-       alfa[i] = variables[i].conf_level;
-       params[i] = variables[i].value;
-       width[i] = variables[i].sec_value;
-       _type[i] = variables[i].type;
+    //printf("uncer count %d and normal count = %d\n",uncer_var_count, total - uncer_var_count);
+    for(i = 0; i<uncer_var_count;i++){
+
+        alfa[i] = variables_uncer[i].conf_level;
+        params[i] = variables_uncer[i].value;
+        width[i] = variables_uncer[i].sec_value;
+        _type[i] = variables_uncer[i].type;    
+        //printf("%s = %lf\n",variables_uncer[i].name,params[i]);
     }
-    
+    /*for (i = 0; i < total - uncer_var_count ; i++){
+        printf("%s = %lf\n",variables_normal[i].name, variables_normal[i].value);
+    }*/
+    //printf("out of for loop\n");
     if(uncern == 0){
+        printf("in normal area\n");
         strcat(sharpe_command,"./sharpe ");
         strcat(sharpe_command,argv);
         command(sharpe_command);
         return ;
     }
     
-    sample_size = getResults(result,num_variables,params,width,alfa,_type,t);
+    sample_size = getResults(result,uncer_var_count,params,width,alfa,_type,t);
+    
     makeString(test,params,12);
     command("./sharpe output.txt");
 
@@ -102,6 +110,7 @@ double getValue(char const *argv){
         fprintf(fout,"value %lf\n",result[i]);
     }
     fclose(fout);
+    
     free(test);
 }
 
@@ -136,8 +145,10 @@ double getResults(double *val, int num_var, double *param_hat, double *var, doub
 		args[1] = var[i];
 		args[2] = alfa[i];
 
+        //printf("val = %lf, sec_val = %lf, alfa = %lf\n",args[0],args[1],args[2]);
+
 		if(type[i] == 0) total[i] = fixedPoint(100,&args[0],&beta_1sided);
-		else if(type[i] == 1) total[i] = fixedPoint(100,&args[0],&erlang_2sided);
+		else if(type[i] == 1) total[i] = fixedPoint(10,&args[0],&erlang_2sided);
 
 		if(total[i] > _size) _size = total[i];
 
@@ -151,7 +162,8 @@ double getResults(double *val, int num_var, double *param_hat, double *var, doub
 		// if ith distribution is of beta type
 		if(type[i] == 0){
 			a = param_hat[i]*total[i];
-			b = total[i] - a;	
+			b = total[i] - a;
+            //printf("a = %d and b = %d\n",a,(int)b);	
 		} 
 		// if ith type distribution is of erlang type
 		else if(type[i] == 1){
@@ -330,8 +342,11 @@ int makeString(char *input_array, double *mod_value,double time_value)
                 if(_flag == 0){
                     /* Enter print statements*/
                     fprintf(fout, "bind\n");
-                    for( i = 0; i < total ; i++) {
-                        fprintf(fout,"%s %lf\n",variables[i].name,mod_value[i]);
+                    for( i = 0; i < uncer_var_count ; i++) {
+                        fprintf(fout,"%s %lf\n",variables_uncer[i].name,mod_value[i]);
+                    }
+                    for ( i=0; i < total - uncer_var_count ; i++){
+                        fprintf(fout,"%s %lf\n",variables_normal[i].name,variables_normal[i].value);    
                     }
                     _flag = 1;
                 }
@@ -370,6 +385,7 @@ int getVar(char *input_array)
     int wcount = 0;                 // count to keep track of words after encountering bind
     int var_count = 0;              // count to keep track of the number of variables
     int uncer_flag = 0;             // variable to denote type of analysis
+    int is_uncer = 0;               // variable to check the type of current sharpe var
 
     char c = input_array[char_count];
     while(c != EOF){
@@ -425,42 +441,68 @@ int getVar(char *input_array)
                 wcount ++; 
                 
                 switch(wcount){
-                    case 1 :
-                        if(strcmp(my_string,"bind") != 0) {
-                            variables[var_count-1].name = strdup(my_string);
-                        }
-                        break ;
-                    case 2 :
-                        variables[var_count-1].value = atof(my_string);
-                        break;
-                    case 3 : 
+                    case 1 : 
                         if(strcmp(my_string,"conf") == 0){
                             uncern = 1;
+                            is_uncer = 1;
+                            uncer_var_count++;
+                            var_count++;
+                        }
+                        else {
+                            is_uncer = 0;
+                            if (strcmp(my_string,"bind") != 0) {
+                                if (strcmp(my_string,"") != 0) {
+                                    //printf("name = %s and count = %d\n",my_string,(var_count - uncer_var_count));
+                                    var_count++;
+                                    variables_normal[var_count - uncer_var_count - 1].name = strdup(my_string);    
+                                } 
+                            }
+                        }
+
+                        break;
+                    case 2 :
+                        if(is_uncer == 1){
+                            if(strcmp(my_string,"bind") != 0) {
+                                variables_uncer[uncer_var_count-1].name = strdup(my_string);
+                            }
+                        }
+                        else {
+                            
+                            variables_normal[var_count - uncer_var_count - 1].value = atof(my_string);    
+                        }
+                        break ;
+                    case 3 :
+                        if(is_uncer == 1){
+                            variables_uncer[uncer_var_count-1].value = atof(my_string);
                         }
                         break;
                     case 4:
                         if(uncern == 1){
-                            variables[var_count-1].conf_level = atof(my_string);
+                            variables_uncer[uncer_var_count-1].conf_level = atof(my_string);
                         }
                         break;
                     case 5:
                         if(uncern == 1){
-                            variables[var_count-1].sec_value = atof(my_string);
+                            variables_uncer[uncer_var_count-1].sec_value = atof(my_string);
                         }
                         break;
                     case 6:
                         if(uncern == 1){
-                            variables[var_count-1].type = atoi(my_string);
+                            if (strcmp(my_string,"erlang") == 0) {
+                                variables_uncer[uncer_var_count-1].type = 1;    
+                            }
+                            else if(strcmp(my_string,"beta") == 1){
+                                variables_uncer[uncer_var_count-1].type = 0;
+                            }
+                            
                         }
                         break;
                     default :
-                        printf("This wasnt supposed to happen\n");
+                        printf("word : %s and wcount : %d\n",my_string,wcount);
                         break;
                 }
                 if(c == '\n'){
                     wcount = 0;
-                    var_count++;
-                    total = var_count-1;
                 }
             }
             // initialize the string back, to make it ready to accomodate next word
@@ -473,7 +515,7 @@ int getVar(char *input_array)
     }
     
     if(c == EOF)    //printf("%s",my_string);
-    //printf("type is : %s\n",type);
+    total = var_count;
     return total;
 
 }

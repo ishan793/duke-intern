@@ -2,6 +2,7 @@
 This file contains the source code to find the number of observations required to 
 obtain the stated conf interval.
 */
+#include <stdio.h>
 #include <gsl/gsl_cdf.h>
 #include <stdlib.h>
 #include "size.h"
@@ -43,12 +44,14 @@ double erlang_2sided(double r, double lambda_hat, double half_width, double alfa
 }
 
 double beta_1sided(double r,double c_hat,double c_l,double alfa){
-	double arg1,den,res;
+	double den,res;
+	int arg1;
 
-	arg1 = r*(1 - c_hat) + 1;
+	arg1 = (int)(r*(1 - c_hat) + 1);
 	arg1 = 2*arg1;
 	den = 2*(1 - c_l);
 
 	res = gsl_cdf_chisq_Qinv(alfa,arg1)/den;
+	//printf("res = %lf\n",res);
 	return res;
 }

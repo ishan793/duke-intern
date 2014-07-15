@@ -9,7 +9,13 @@ typedef struct{
 	int type;
 	} var_info;
 
-var_info variables[100]; 
+typedef struct{
+	char *name;
+	double value;
+	} var_info_normal;
+
+var_info variables_uncer[50]; 
+var_info_normal variables_normal[50]; 
 
 double getFile(char const *argv);
 char *storeFile(char const *argv);

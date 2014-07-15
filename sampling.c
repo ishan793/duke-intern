@@ -30,6 +30,7 @@ void getSamples(double *array, int num_samples,int a,double b,int sel,gsl_rng *r
 		if(sel == 0){
 			//printf("in bet\n");
 			// set distribution parameters 
+			//printf("number is %lf, a = %d and b = %d\n",rando,a,(int)b);
 			array[i] = gsl_cdf_beta_Pinv(rando,a,(int)b);
 		}
 		else if(sel == 1){
