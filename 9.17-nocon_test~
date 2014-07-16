@@ -1,0 +1,46 @@
+* This example is Ex 9.17 from the book.
+* This implements the queueing network ignoring the
+* memory constraint.  
+* This corresponds to the row of E[R^] in table 9.12
+
+bind 
+p1 0.5
+p2 0.8
+p3 0.15
+conf scpu 89.3 0.05 8.56 1
+conf sio1 44.6 0.05 4.35 1
+conf sio2 26.8 0.05 2.7 1
+conf sio3 13.4 0.05 1.54 1
+sterm 0.067
+end
+
+pfqn ex9.16(n)
+cpu term 0.05
+cpu io1 p1
+cpu io2 p2
+cpu io3 p3
+io1 cpu 1
+io2 cpu 1
+io3 cpu 1
+term cpu 1
+end
+cpu fcfs scpu
+term is sterm
+io1 fcfs sio1
+io2 fcfs sio2
+io3 fcfs sio3
+end
+
+cust n
+end
+
+func ET(N) scpu*util(ex9.16,cpu;N)*0.05
+func ER(M) M/ET(M) - 1/sterm
+expr ER(10)
+expected expr ER(20)
+expr ER(30)
+expr ER(40)
+expr ER(50)
+expr ER(60)
+end
+

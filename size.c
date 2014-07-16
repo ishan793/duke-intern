@@ -5,6 +5,7 @@ obtain the stated conf interval.
 #include <stdio.h>
 #include <gsl/gsl_cdf.h>
 #include <stdlib.h>
+#include <math.h>
 #include "size.h"
 
 
@@ -53,5 +54,35 @@ double beta_1sided(double r,double c_hat,double c_l,double alfa){
 
 	res = gsl_cdf_chisq_Qinv(alfa,arg1)/den;
 	//printf("res = %lf\n",res);
+	return res;
+}
+
+double average(double *array, int num){
+	int i = 0;
+	double sum = 0;
+	
+	for(i = 0; i < num; i++){
+		//printf("%lf\n",array[i]);
+		sum += array[i];
+	}
+	//printf("Sum = %lf",sum);
+	return sum/num;
+}
+double variance(double *array, int num){
+	int i = 0;
+	double avg = 0;
+	double res = 0;
+
+	for(i = 0; i < num; i++){
+		avg += array[i];
+	}
+	avg = avg/num;
+
+	for(i = 0; i < num ; i++){
+		res += (avg - array[i])*(avg - array[i]);
+	}
+
+	res = res/num;
+	res = sqrt(res);
 	return res;
 }

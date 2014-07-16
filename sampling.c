@@ -36,6 +36,7 @@ void getSamples(double *array, int num_samples,int a,double b,int sel,gsl_rng *r
 		else if(sel == 1){
 			// set distribution parameters
 			//printf("random number is %lf, sum is %lf and size is %d\n",rando,b,size);
+			
 			array[i] = erlang_inv(rando,a,b);
 		}
 		//printf("in sampling %lf\n",array[i]);

@@ -1,4 +1,3 @@
-#include <math.h>
 #include <gsl/gsl_rng.h>
 #include "sampling.h"
 #include "results.h"
@@ -9,10 +8,13 @@
 
 int total = 0;								// indicates the number of var
 int uncern = 0;								// marker to tell whether uncertainty needs to be done or not
-char type[20] = {'\0'};                     // word that indicates the variable whose value is found by sharpe.
-int uncer_type = 0;                         // variable to denote the uncertainty type
+char type[10][20] = {'\0'};                     // word that indicates the variable whose value is found by sharpe.
+int uncer_type[10] = {0};                         // variable to denote the uncertainty type
 char *test;                                 // string to store the file as an array
 int uncer_var_count = 0;                // variable to keep track of number of variables of uncer type
+int expr_count;
+double results[500][10];
+
 
 double getValue(char const *argv){
 
@@ -21,110 +23,88 @@ double getValue(char const *argv){
     double params[10];                      // array to store the point estimate of varaible(s)
     double width[10];                       // array to store half width/lower limit of varaible(s)
     double _type[10];                       // array to store the type of varaible(s)
-    double result[500];                     // array to store the resultant values of the system
+    double result_column[500];              // array to store the resultant values of the system
     int num_variables = 0;                  // varaible for number of variables
     int sample_size = 0;                    // variable for number of total sampels
     int i = 0;                              // loop counter
     double t = 0;                           // time value
-    
+
 
     test = storeFile(argv);
-    /*--------------- debug --------------------*/
-    /*printf("-------------- debug starts --------------------\n");
-    int j = 0;
-    while(test[j] != EOF){
-        printf("%c",test[j]);
-        j++;
-    }
-    printf("-------------- debug ends --------------------\n");
-    /*--------------- debug --------------------*/
     num_variables = getVar(test);
-    //printf("uncer count %d and normal count = %d\n",uncer_var_count, total - uncer_var_count);
+    
     for(i = 0; i<uncer_var_count;i++){
 
         alfa[i] = variables_uncer[i].conf_level;
         params[i] = variables_uncer[i].value;
         width[i] = variables_uncer[i].sec_value;
         _type[i] = variables_uncer[i].type;    
-        //printf("%s = %lf\n",variables_uncer[i].name,params[i]);
+        
     }
-    /*for (i = 0; i < total - uncer_var_count ; i++){
-        printf("%s = %lf\n",variables_normal[i].name, variables_normal[i].value);
-    }*/
-    //printf("out of for loop\n");
+    
     if(uncern == 0){
-        printf("in normal area\n");
         strcat(sharpe_command,"./sharpe ");
         strcat(sharpe_command,argv);
         command(sharpe_command);
         return ;
     }
     
-    sample_size = getResults(result,uncer_var_count,params,width,alfa,_type,t);
+    sample_size = getResults(uncer_var_count,params,width,alfa,_type,t);
     
     makeString(test,params,12);
     command("./sharpe output.txt");
 
+    int j = 0;
+    for(i = 0; i < expr_count ; i++){
+        switch (uncer_type[i]){
+            case(1):
+                // evaluate expected
+                for(j = 0;j<sample_size;j++){
+                    // j indicates the sample size counter and 'i' is the expr_count counter
+                    result_column[j] = results[j][i];
+                }
+                printf("Expected %s %lf\n",type[i],average(result_column,sample_size));
+                break;
+            case(2):
+                for(j = 0;j<sample_size;j++){
+                    // j indicates the sample size counter and 'i' is the expr_count counter
+                    result_column[j] = results[j][i];
+                }
+                printf("Variance of %s %lf\n",type[i],variance(result_column,sample_size));
+                break;
+            default :
+                printf("Feature not yet implemented\n");
 
-    double res = 0;
-    int count = 0;
-    double avg = 0;
-    
-    switch (uncer_type){
-        case(1):
-            // evaluate expected
-            res = 0;
-            while(count < sample_size){
-                res += result[count];
-                count++;
-            }
-            res = res/count;
-            printf("Expected %s %lf\n",type,res);
-            break;
-        case(2):
-            avg = 0;
-            while(count < sample_size){
-                avg += result[count];
-                count++;
-            }
-            avg = avg/count;
-            count = 0;
-            res = 0;
-            while(count < sample_size){
-                res += (result[count] - avg)*(result[count] - avg);
-                count ++;
-            }
-            res = res/count;
-            res = sqrt(res);
-            printf("Variance of %s %lf\n",type,res);
-            break;
-        default :
-            printf("Feature not yet implemented\n");
-
+        }
+        // re intialize the matrix
+        for(j = 0;j<sample_size;j++){
+            // j indicates the sample size counter and 'i' is the expr_count counter
+            result_column[j] = 0;
+        }
     }
-    printf("number of samples we have is %d\n",sample_size);
+    printf("Number of samples considered %d\n",sample_size);
 
-    FILE *fout;
+    /*FILE *fout;
     fout = fopen("my_text.txt","w");
     for(i=0;i<sample_size;i++){
-        fprintf(fout,"value %lf\n",result[i]);
+        fprintf(fout,"value %lf %lf %lf\n",result[i]);
     }
     fclose(fout);
-    
+    */
     free(test);
 }
 
 // returns the number of samples taken, modifies the val array to store the values.
-double getResults(double *val, int num_var, double *param_hat, double *var, double *alfa, double *type, double t){
+double getResults(int num_var, double *param_hat, double *var, double *alfa, double *_type, double t){
 	// _size - refers to the number of samples that need to be generated.
 	// num_var - number of variables present.
 	// param_hat - expected value of parameter(array).
 	// alfa - confidence value(array).				
 	// var - half width for erlang, c_lower for beta(array).
-	// type - variable to tell whether values at ith index are of beta(0) or erlang(1)
+	// _type - variable to tell whether values at ith index are of beta(0) or erlang(1)
 	
 	int _size = 0;
-	double sum = 0;
+	int _expr_count = 0;
 	double sample_points[num_var][max_size]; 	// array to store the samples generated
 	int i,j; 					// for loop param
 	int total[num_var]; 		// array to store the number of observation for each variable
@@ -145,10 +125,8 @@ double getResults(double *val, int num_var, double *param_hat, double *var, doub
 		args[1] = var[i];
 		args[2] = alfa[i];
 
-        //printf("val = %lf, sec_val = %lf, alfa = %lf\n",args[0],args[1],args[2]);
-
-		if(type[i] == 0) total[i] = fixedPoint(100,&args[0],&beta_1sided);
-		else if(type[i] == 1) total[i] = fixedPoint(10,&args[0],&erlang_2sided);
+		if(_type[i] == 0) total[i] = fixedPoint(100,&args[0],&beta_1sided);
+		else if(_type[i] == 1) total[i] = fixedPoint(100,&args[0],&erlang_2sided);
 
 		if(total[i] > _size) _size = total[i];
 
@@ -160,18 +138,17 @@ double getResults(double *val, int num_var, double *param_hat, double *var, doub
 
 	for(i = 0; i < num_var; i++){
 		// if ith distribution is of beta type
-		if(type[i] == 0){
+		if(_type[i] == 0){
 			a = param_hat[i]*total[i];
-			b = total[i] - a;
-            //printf("a = %d and b = %d\n",a,(int)b);	
+			b = total[i] - a;	
 		} 
 		// if ith type distribution is of erlang type
-		else if(type[i] == 1){
+		else if(_type[i] == 1){
 			a = total[i];
 			b = a/param_hat[i];
 		}
 		//printf("%dth distribution\n",i+1);
-		getSamples(&sample_points[i][0],_size,a,b,type[i],r,T);
+		getSamples(&sample_points[i][0],_size,a,b,_type[i],r,T);
 		//gsl_rng_free (r);	
 	}
 	/*printf("samples generated\n");
@@ -188,15 +165,13 @@ double getResults(double *val, int num_var, double *param_hat, double *var, doub
 		for(j = 0 ; j < num_var ; j++){
 			func_arg[j] = sample_points[j][i];
 		}
-		val[i] = relExpr(func_arg,t);
+		relExpr(func_arg,t,results[i]);
 	}
-	
-	//printf("actual is %lf\n",relExpr(func_arg,0.12));
-
+    
 	return _size;
 }
 
-double relExpr(double *rate, double t){
+int relExpr(double *rate, double t, double *res){
    
     int i;                          // for loop counter
     char my_string[50] = {"\0"};    // string for storing words and checking them
@@ -204,7 +179,7 @@ double relExpr(double *rate, double t){
     int on = 0;                     // flag to tell whether required word encountered or not
     int wcount = 0;                 // count to keep track of words after encountering required word
     int var_count = 0;              // count to keep track of the number of variables
-
+    int my_count = 0;
     
 	makeString(test,rate,t);        // function called to make output text file which sharpe acts upon   
 	
@@ -232,15 +207,22 @@ double relExpr(double *rate, double t){
         // when a word is completed, check for appropriate markers.
         else if (c == ' ' || c == '\t' || c == '\n'){   
             // if word is encountered, switch on, switch off upon new line
-            if(strcmp(type,my_string) == 0){on = 1;}
-            
-            
+            if(strcmp(type[my_count],my_string) == 0 ){
+                if(strcmp(type[my_count],"") != 0){
+                    on = 1;
+                    //printf("String = %s, count = %d\n",my_string,my_count);
+                }
+            }
             if(on == 1){
                 wcount++;
                 switch(wcount){
                     case 4:
                         //printf("value is %s\n",my_string);
-                        return atof(my_string);
+                        /*changes made here, rectify*/
+                        //printf("count = %d, value = %s\n",my_count,my_string);
+                        res[my_count] = atof(my_string);
+                        my_count++;
+                        //return atof(my_string);
                         
                         break;
                     default:
@@ -262,7 +244,7 @@ double relExpr(double *rate, double t){
     c = fgetc(fin);
     }
     
-    return 0;
+    return my_count;
 }
 // function to read the input file and store it an array
 char *storeFile(char const *argv){
@@ -336,6 +318,9 @@ int makeString(char *input_array, double *mod_value,double time_value)
                 else if(strcmp(my_string,"variance") == 0){
                     //fprintf(fout,"bind\nt %lf\nend\n",time_value);    
                 }
+                else if(strcmp(my_string,"confidence") == 0){
+                    //fprintf(fout,"bind\nt %lf\nend\n",time_value);    
+                }
                 else fprintf(fout, "%s%c", my_string,c);
             }
             else if(on == 1) {
@@ -405,15 +390,15 @@ int getVar(char *input_array)
             else if(strcmp(my_string,"end") == 0)   on = 0;
             // look for markers related to uncertainty analysis
             else if(strcmp(my_string,"expected") == 0) {
-                uncer_type = 1;
+                uncer_type[expr_count] = 1;
                 uncer_flag = 2;
             }
             else if(strcmp(my_string,"variance") == 0) {
-                uncer_type = 2;
+                uncer_type[expr_count] = 2;
                 uncer_flag = 2;
             }
             else if(strcmp(my_string,"confidence") == 0) {
-                uncer_type = 3;
+                uncer_type[expr_count] = 3;
                 uncer_flag = 2;
             }
 
@@ -422,8 +407,8 @@ int getVar(char *input_array)
                 switch(wcount){
                     case 3 :
                         //printf("3: %s\n",my_string);
-                        strcpy(type,my_string);
-                        strcat(type,":");
+                        strcpy(type[expr_count],my_string);
+                        strcat(type[expr_count++],":");
                         break;
                     default :
                         //printf("%s\t%d\n",my_string,wcount);
@@ -454,11 +439,10 @@ int getVar(char *input_array)
                                 if (strcmp(my_string,"") != 0) {
                                     //printf("name = %s and count = %d\n",my_string,(var_count - uncer_var_count));
                                     var_count++;
-                                    variables_normal[var_count - uncer_var_count - 1].name = strdup(my_string);    
+                                    variables_normal[var_count - uncer_var_count - 1].name = strdup(my_string);        
                                 } 
                             }
                         }
-
                         break;
                     case 2 :
                         if(is_uncer == 1){
@@ -488,13 +472,12 @@ int getVar(char *input_array)
                         break;
                     case 6:
                         if(uncern == 1){
-                            if (strcmp(my_string,"erlang") == 0) {
-                                variables_uncer[uncer_var_count-1].type = 1;    
+                            if(strcmp(my_string,"erlang") == 0){ 
+                                variables_uncer[uncer_var_count-1].type = 1;
                             }
-                            else if(strcmp(my_string,"beta") == 1){
-                                variables_uncer[uncer_var_count-1].type = 0;
+                            else if(strcmp(my_string,"beta") == 0){
+                                variables_uncer[uncer_var_count-1].type = 0;    
                             }
-                            
                         }
                         break;
                     default :
