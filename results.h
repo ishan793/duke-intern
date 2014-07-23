@@ -24,5 +24,6 @@ int getVar(char *input_array);
 int command (char *_command);
 int relExpr(double *rate, double t, double *res);
 double getResults(int num_var, double *param_hat, double *var, double *alfa, double *type, double t);
+int compare_doubles (const double * a, const double * b);
 
 #endif

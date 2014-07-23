@@ -15,6 +15,15 @@ int uncer_var_count = 0;                // variable to keep track of number of v
 int expr_count;
 double results[500][10];
 
+int compare_doubles (const double * a, const double * b)
+{
+    if (*a > *b)
+       return 1;
+    else if (*a < *b)
+       return -1;
+    else
+       return 0;
+}
 
 double getValue(char const *argv){
 
@@ -55,22 +64,40 @@ double getValue(char const *argv){
     command("./sharpe output.txt");
 
     int j = 0;
+    int percentage = 0;
+    double _alfa = 0;
     for(i = 0; i < expr_count ; i++){
+        for(j = 0;j<sample_size;j++){
+            // j indicates the sample size counter and 'i' is the expr_count counter
+            result_column[j] = results[j][i];
+        }
         switch (uncer_type[i]){
             case(1):
                 // evaluate expected
-                for(j = 0;j<sample_size;j++){
-                    // j indicates the sample size counter and 'i' is the expr_count counter
-                    result_column[j] = results[j][i];
-                }
                 printf("Expected %s %lf\n",type[i],average(result_column,sample_size));
                 break;
-            case(2):
-                for(j = 0;j<sample_size;j++){
-                    // j indicates the sample size counter and 'i' is the expr_count counter
-                    result_column[j] = results[j][i];
-                }
+            case(2):                
                 printf("Variance of %s %lf\n",type[i],variance(result_column,sample_size));
+                break;
+            case(3):
+                while(1){
+                    printf("Enter confidence level in percentage : ");
+                    scanf("%d",&percentage);
+                    if(percentage > 99){
+                        printf("Value is inappropriate, please renter\n");
+                    }
+                    else{
+                        break;
+                    }
+                }
+                _alfa = (100 - percentage)/100.0;
+                _alfa = _alfa/2;
+                j = _alfa*sample_size;
+                gsl_heapsort (result_column, sample_size, sizeof(double), compare_doubles);
+                printf("Confidence interval of %s : (%lf, ",type[i],result_column[j]);
+                _alfa = 1 - _alfa;
+                j = _alfa*sample_size;
+                printf("%lf)\n",result_column[j]);
                 break;
             default :
                 printf("Feature not yet implemented\n");
@@ -87,7 +114,11 @@ double getValue(char const *argv){
     /*FILE *fout;
     fout = fopen("my_text.txt","w");
     for(i=0;i<sample_size;i++){
-        fprintf(fout,"value %lf %lf %lf\n",result[i]);
+        fprintf(fout,"value ");
+        for(j=0;j<expr_count;j++){
+            fprintf(fout,"%lf ",results[i][j]);
+        }
+        fprintf(fout,"\n");
     }
     fclose(fout);
     */
