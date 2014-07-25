@@ -13,6 +13,7 @@ int uncer_type[10] = {0};                         // variable to denote the unce
 char *test;                                 // string to store the file as an array
 int uncer_var_count = 0;                // variable to keep track of number of variables of uncer type
 int expr_count;
+int _conf[] = {0};
 double results[500][10];
 
 int compare_doubles (const double * a, const double * b)
@@ -80,16 +81,8 @@ double getValue(char const *argv){
                 printf("Variance of %s %lf\n",type[i],variance(result_column,sample_size));
                 break;
             case(3):
-                while(1){
-                    printf("Enter confidence level in percentage : ");
-                    scanf("%d",&percentage);
-                    if(percentage > 99){
-                        printf("Value is inappropriate, please renter\n");
-                    }
-                    else{
-                        break;
-                    }
-                }
+                //printf("value extracted = %d\n",_conf[i]);
+                percentage = _conf[i];
                 _alfa = (100 - percentage)/100.0;
                 _alfa = _alfa/2;
                 j = _alfa*sample_size;
@@ -315,6 +308,10 @@ int makeString(char *input_array, double *mod_value,double time_value)
     int _count = 0;                 // index for my_string array
     int on = 0;                     // flag to tell whether bind/end encountered or not
     int _flag = 0;                  // flag to ensure prints for bind statements are done only once
+    int metric_count = 0;
+    int conf_on = 0;
+    char conf_name[50];
+    char ch;
 
     FILE *fout;
     fout = fopen("output.txt","w");
@@ -345,14 +342,33 @@ int makeString(char *input_array, double *mod_value,double time_value)
             if(on == 0) {
                 if(strcmp(my_string,"expected") == 0){
                     //fprintf(fout,"bind\nt %lf\nend\n",time_value);
+                    metric_count ++;
                 }
                 else if(strcmp(my_string,"variance") == 0){
-                    //fprintf(fout,"bind\nt %lf\nend\n",time_value);    
+                    //fprintf(fout,"bind\nt %lf\nend\n",time_value);   
+                    metric_count ++; 
                 }
                 else if(strcmp(my_string,"confidence") == 0){
-                    //fprintf(fout,"bind\nt %lf\nend\n",time_value);    
+                    //fprintf(fout,"bind\nt %lf\nend\n",time_value); 
+                    metric_count ++;
+                    conf_on = 1;
+                    for(i = 0;i<50 ; i++){
+                        ch = type[metric_count - 1][i];
+                        if (ch != ':'){
+                            conf_name[i] = ch;
+                        }
+                        else{
+                            break;
+                        }
+                    }
+                    fprintf(fout,"expr %s\n",conf_name);   
                 }
-                else fprintf(fout, "%s%c", my_string,c);
+                else {
+                    if(conf_on == 0){
+                        fprintf(fout, "%s%c", my_string,c);
+                    } 
+                }
+                if(c == '\n') conf_on = 0;
             }
             else if(on == 1) {
                 if(_flag == 0){
@@ -441,6 +457,9 @@ int getVar(char *input_array)
                         strcpy(type[expr_count],my_string);
                         strcat(type[expr_count++],":");
                         break;
+                    case 4 :
+                        _conf[expr_count - 1] = atoi(my_string);
+                        //printf("");
                     default :
                         //printf("%s\t%d\n",my_string,wcount);
                         break;

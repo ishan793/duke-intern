@@ -40,7 +40,6 @@ int main(int argc, char *argv[]) {
     }*/
     printf("\n");
     getValue(argv[1]);
-    
 
     return 0;
 }

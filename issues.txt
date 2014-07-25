@@ -1,7 +1,0 @@
-issues in implementation/possible upgradations :
-
-1. all bind statements together / allow multiple bind statement
-2. uncertainty analysis for only one expr possible/ allow uncer analysis for more than one bind statement
-3. in same bind block bloc, allow either uncer var or normal var
-4. fraction notation causes issues
-5. cleaner variable name, documentation to be done. 

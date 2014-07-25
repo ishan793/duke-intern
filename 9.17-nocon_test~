@@ -5,12 +5,12 @@
 
 bind 
 p1 0.5
-p2 0.8
+p2 0.3
 p3 0.15
-conf scpu 89.3 0.05 8.56 1
-conf sio1 44.6 0.05 4.35 1
-conf sio2 26.8 0.05 2.7 1
-conf sio3 13.4 0.05 1.54 1
+conf scpu 89.3 0.05 8.56 erlang
+conf sio1 44.6 0.05 4.35 erlang
+conf sio2 26.8 0.05 2.7 erlang
+conf sio3 13.4 0.05 1.54 erlang
 sterm 0.067
 end
 
@@ -38,9 +38,9 @@ func ET(N) scpu*util(ex9.16,cpu;N)*0.05
 func ER(M) M/ET(M) - 1/sterm
 expr ER(10)
 expected expr ER(20)
-expr ER(30)
-expr ER(40)
-expr ER(50)
-expr ER(60)
+expected expr ER(30)
+varian expr ER(30)
+confidence expr ER(50)
+variance expr ER(60)
 end
 
