@@ -5,16 +5,22 @@
 #include <string.h>
 #include <stdio.h>
 
+#define SHARPE_REDIRECT "./sharpe output.txt > sharpe_output.txt"
+#define SHARPE_EXECUTE "./sharpe output.txt"
+#define SHARPE_ENV_VAR "SHARPE_PATH"
+
+#define CHAR_LOWER 33
+#define CHAR_UPPER 127
 
 int total = 0;								// indicates the number of var
 int uncern = 0;								// marker to tell whether uncertainty needs to be done or not
-char type[10][20] = {'\0'};                     // word that indicates the variable whose value is found by sharpe.
-int uncer_type[10] = {0};                         // variable to denote the uncertainty type
-char *test;                                 // string to store the file as an array
+char type[50][50] = {'\0'};                     // word that indicates the variable whose value is found by sharpe.
+int uncer_type[50] = {0};                         // variable to denote the uncertainty type
+char *test = NULL;                                 // string to store the file as an array
 int uncer_var_count = 0;                // variable to keep track of number of variables of uncer type
-int expr_count;
-int _conf[] = {0};
-double results[500][10];
+int expr_count = 0;
+int _conf[50] = {0};
+double results[500][50] = {0};
 
 int compare_doubles (const double * a, const double * b)
 {
@@ -27,18 +33,18 @@ int compare_doubles (const double * a, const double * b)
 }
 
 double getValue(char const *argv){
-
+    
     char sharpe_command[50] = {'\0'};       // string to form the sharpe command in case uncertainty is not reqd.
-    double alfa[10];                        // array to store the confidence level of varaible(s)
-    double params[10];                      // array to store the point estimate of varaible(s)
-    double width[10];                       // array to store half width/lower limit of varaible(s)
-    double _type[10];                       // array to store the type of varaible(s)
-    double result_column[500];              // array to store the resultant values of the system
+    double alfa[50] = {0};                        // array to store the confidence level of varaible(s)
+    double params[50] = {0};                      // array to store the point estimate of varaible(s)
+    double width[50] = {0};                       // array to store half width/lower limit of varaible(s)
+    double _type[50] = {0};                       // array to store the type of varaible(s)
+    double result_column[500] = {0};              // array to store the resultant values of the system
     int num_variables = 0;                  // varaible for number of variables
     int sample_size = 0;                    // variable for number of total sampels
     int i = 0;                              // loop counter
     double t = 0;                           // time value
-
+    char *sharpe_env = NULL;
 
     test = storeFile(argv);
     num_variables = getVar(test);
@@ -52,8 +58,15 @@ double getValue(char const *argv){
         
     }
     
+    sharpe_env = getenv(SHARPE_ENV_VAR);
+    //printf("%s\n",sharpe_env);
     if(uncern == 0){
-        strcat(sharpe_command,"./sharpe ");
+        if(sharpe_env == NULL){
+            strcat(sharpe_command,"./sharpe ");    
+        }
+        else{
+            strcat(sharpe_command,sharpe_env);        
+        }
         strcat(sharpe_command,argv);
         command(sharpe_command);
         return ;
@@ -61,12 +74,22 @@ double getValue(char const *argv){
     
     sample_size = getResults(uncer_var_count,params,width,alfa,_type,t);
     
+    
     makeString(test,params,12);
-    command("./sharpe output.txt");
-
+    if(sharpe_env == NULL){
+        command(SHARPE_EXECUTE);
+    }
+    else{
+        strcat(sharpe_command,sharpe_env);
+        strcat(sharpe_command," output.txt");
+        //printf("%s\n",sharpe_env);
+        command(sharpe_command);
+    }
     int j = 0;
+    int index = 0;
     int percentage = 0;
     double _alfa = 0;
+    
     for(i = 0; i < expr_count ; i++){
         for(j = 0;j<sample_size;j++){
             // j indicates the sample size counter and 'i' is the expr_count counter
@@ -85,12 +108,12 @@ double getValue(char const *argv){
                 percentage = _conf[i];
                 _alfa = (100 - percentage)/100.0;
                 _alfa = _alfa/2;
-                j = _alfa*sample_size;
+                index = _alfa*sample_size;
                 gsl_heapsort (result_column, sample_size, sizeof(double), compare_doubles);
-                printf("Confidence interval of %s : (%lf, ",type[i],result_column[j]);
+                printf("Confidence interval of  %s (%lf",type[i],result_column[index]);
                 _alfa = 1 - _alfa;
-                j = _alfa*sample_size;
-                printf("%lf)\n",result_column[j]);
+                index = _alfa*sample_size;
+                printf(" %lf)\n",result_column[index]);
                 break;
             default :
                 printf("Feature not yet implemented\n");
@@ -103,18 +126,6 @@ double getValue(char const *argv){
         }
     }
     printf("Number of samples considered %d\n",sample_size);
-
-    /*FILE *fout;
-    fout = fopen("my_text.txt","w");
-    for(i=0;i<sample_size;i++){
-        fprintf(fout,"value ");
-        for(j=0;j<expr_count;j++){
-            fprintf(fout,"%lf ",results[i][j]);
-        }
-        fprintf(fout,"\n");
-    }
-    fclose(fout);
-    */
     free(test);
 }
 
@@ -127,7 +138,7 @@ double getResults(int num_var, double *param_hat, double *var, double *alfa, dou
 	// var - half width for erlang, c_lower for beta(array).
 	// _type - variable to tell whether values at ith index are of beta(0) or erlang(1)
 	
-	int _size = 0;
+	int _size = 200;
 	int _expr_count = 0;
 	double sample_points[num_var][max_size]; 	// array to store the samples generated
 	int i,j; 					// for loop param
@@ -149,15 +160,16 @@ double getResults(int num_var, double *param_hat, double *var, double *alfa, dou
 		args[1] = var[i];
 		args[2] = alfa[i];
 
-		if(_type[i] == 0) total[i] = fixedPoint(100,&args[0],&beta_1sided);
+		if(_type[i] == 0) total[i] = _size;
 		else if(_type[i] == 1) total[i] = fixedPoint(100,&args[0],&erlang_2sided);
 
 		if(total[i] > _size) _size = total[i];
 
 	}
 	
-	//printf("%d\n",_size);
-	
+    for (i = 0; i < num_var ; i++){
+        total[i] = _size;
+    }
 	// generating sample points
 
 	for(i = 0; i < num_var; i++){
@@ -196,7 +208,7 @@ double getResults(int num_var, double *param_hat, double *var, double *alfa, dou
 }
 
 int relExpr(double *rate, double t, double *res){
-   
+
     int i;                          // for loop counter
     char my_string[50] = {"\0"};    // string for storing words and checking them
     int _count = 0;                 // index for my_string array
@@ -204,13 +216,21 @@ int relExpr(double *rate, double t, double *res){
     int wcount = 0;                 // count to keep track of words after encountering required word
     int var_count = 0;              // count to keep track of the number of variables
     int my_count = 0;
+    char *sharpe_env = NULL;
+    char sharpe_command[100] = {"\0"};
     
-	makeString(test,rate,t);        // function called to make output text file which sharpe acts upon   
-	
-    // direct the sharpe outputs to a text file
-    freopen("sharpe_output.txt","w",stdout);
-	command("./sharpe output.txt");
-    freopen("/dev/tty","a",stdout);
+    makeString(test,rate,t);        // function called to make output text file which sharpe acts upon   
+    
+    sharpe_env = getenv(SHARPE_ENV_VAR);
+    if (sharpe_env == NULL)
+    {
+        command(SHARPE_REDIRECT);    
+    }
+    else{
+        strcat(sharpe_command,sharpe_env);
+        strcat(sharpe_command," output.txt > sharpe_output.txt");
+        command(sharpe_command);
+    }
     // read the text file and extract the value.
     FILE *fin;
     fin = fopen("sharpe_output.txt","r");
@@ -223,7 +243,7 @@ int relExpr(double *rate, double t, double *res){
         
         // read the given input file
         if (c != ' ' && c != '\t' && c != '\n') {
-            if (c > 33 && c < 127){ 
+            if (c > CHAR_LOWER && c < CHAR_UPPER){ 
                 my_string[_count] = c; 
                 _count ++;   
             }
@@ -267,7 +287,7 @@ int relExpr(double *rate, double t, double *res){
         else { printf("there is something else\n");}
     c = fgetc(fin);
     }
-    
+    fclose(fin);
     return my_count;
 }
 // function to read the input file and store it an array
@@ -304,13 +324,13 @@ int makeString(char *input_array, double *mod_value,double time_value)
 {   
     int char_count = 0;             // index of the input array
     int i;                          // for loop counter
-    char my_string[50] = {"\0"};    // string for storing words and checking them
+    char my_string[100] = {"\0"};    // string for storing words and checking them
     int _count = 0;                 // index for my_string array
     int on = 0;                     // flag to tell whether bind/end encountered or not
     int _flag = 0;                  // flag to ensure prints for bind statements are done only once
     int metric_count = 0;
     int conf_on = 0;
-    char conf_name[50];
+    char conf_name[100] = {"\0"};
     char ch;
 
     FILE *fout;
@@ -326,7 +346,7 @@ int makeString(char *input_array, double *mod_value,double time_value)
         c = input_array[char_count++];
         // read the given input file
         if (c != ' ' && c != '\t' && c != '\n') {
-            if (c > 33 && c < 127){
+            if (c > CHAR_LOWER && c < CHAR_UPPER){
                 my_string[_count] = c; 
                 _count ++;
                 //printf("_count = %d\n",_count );   
@@ -358,6 +378,7 @@ int makeString(char *input_array, double *mod_value,double time_value)
                             conf_name[i] = ch;
                         }
                         else{
+                            conf_name[i] = '\0';
                             break;
                         }
                     }
@@ -400,9 +421,7 @@ int makeString(char *input_array, double *mod_value,double time_value)
     fflush(fout);
     fclose(fout);
     
-
     return 0;
-
 }
 
 // function to extract the variable values from the input file
@@ -424,7 +443,7 @@ int getVar(char *input_array)
         c = input_array[char_count++];
         // read the given input file
         if (c != ' ' && c != '\t' && c != '\n') {
-            if (c > 33 && c < 127){
+            if (c > CHAR_LOWER && c < CHAR_UPPER){
                 
                 my_string[_count] = c; 
                 _count ++;   
@@ -459,7 +478,7 @@ int getVar(char *input_array)
                         break;
                     case 4 :
                         _conf[expr_count - 1] = atoi(my_string);
-                        //printf("");
+                        //printf("in getVar, value of conf %d and index = %d\n",_conf[expr_count - 1],expr_count -1);
                     default :
                         //printf("%s\t%d\n",my_string,wcount);
                         break;

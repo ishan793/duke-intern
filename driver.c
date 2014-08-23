@@ -38,7 +38,6 @@ int main(int argc, char *argv[]) {
     {
         printf("%lf\t",test_array[i]);
     }*/
-    printf("\n");
     getValue(argv[1]);
 
     return 0;

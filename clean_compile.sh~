@@ -1,6 +1,6 @@
 #clean all generated files
-rm -r a.out
+rm -f uncertainty
 # compile the lex and yacc files
 
-gcc -static driver.c sampling.c size.c results.c -lgsl -lgslcblas -lm  
+gcc -o uncertainty -static driver.c sampling.c size.c results.c -lgsl -lgslcblas -lm  
 
